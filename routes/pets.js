@@ -8,15 +8,24 @@ const cats = require('../queues/cats');
 
 router.get('/pets/:pets', (req, res, next) => {
   let petType = req.params.pets;
-  if(petType === 'cats') {
-    res.json(cats.peek());
-  } else if(petType === 'dogs') {
-    res.json(dogs.peek());
+  if (petType === 'cats') {
+    if (cats.peek()) {
+      res.json(cats.peek());
+    } else {
+      res.json();
+    }
+  } else if (petType === 'dogs') {
+    if (dogs.peek()) {
+      res.json(dogs.peek());
+    } else {
+      res.json();
+    }
   } else {
-    const err = new Error('Sorry, cats and dogs only! Check back soon for my animals!');
+    const err = new Error(
+      'Sorry, cats and dogs only! Check back soon for my animals!'
+    );
     err.status = 404;
     next(err);
-    
   }
 });
 
@@ -24,7 +33,7 @@ router.delete('/pets/:pets', (req, res, next) => {
   let petType = req.params.pets;
   let err;
   if (petType === 'cats') {
-    if(cats.peek()){
+    if (cats.peek()) {
       cats.dequeue();
       res.sendStatus(204);
     } else {
@@ -42,7 +51,9 @@ router.delete('/pets/:pets', (req, res, next) => {
       next(err);
     }
   } else {
-    err = new Error('Sorry, cats and dogs only! Check back soon for my animals!');
+    err = new Error(
+      'Sorry, cats and dogs only! Check back soon for my animals!'
+    );
     err.status = 404;
     next(err);
   }
