@@ -7,53 +7,73 @@ const knex = require('../knex');
 
 /* ================ GET ================ */
 
-function selectOnePetFromDb(req,res,next){
+function checkPetType(req, res, next) {
   let petType = req.params.pets;
-  if(petType !== 'dogs' && petType !== 'cats'){
+  if (petType !== 'dogs' && petType !== 'cats') {
     const err = new Error;
     err.status = 404;
-    err.message = ('Sorry, cats and dogs only! Check back soon for my animals!');
+    err.message = ('Sorry, cats and dogs only! Check back soon for more animals!');
     next(err);
+  } else {
+    req.petType = req.params.pets;
+    next();
   }
-  knex(petType).select().limit(1)
+}
+
+function selectOnePetFromDb(req, res, next) {
+  knex(req.petType).select().limit(1)
     .then(([pet]) => {
-      if(pet){
+      if (pet) {
         req.pet = pet;
-      }else{
-        req.pet = null;
+      } else {
+        req.pet = undefined;
       }
       next();
     })
-    .catch(err =>  next(err));
+    .catch(err => next(err));
 }
-router.get('/pets/:pets', selectOnePetFromDb, (req, res) => {
-  console.log('get request:', req.pet);
-  if(req.pet){
+router.get('/pets/:pets', checkPetType, selectOnePetFromDb, (req, res) => {
+  if (req.pet) {
     res.json(req.pet);
-  }else{
+  } else {
     res.sendStatus(200);
   }
 });
-/*--- for queing without db ---*/
 
-// if(petType === 'cats') {
-//   res.json(cats.peek());
-// } else if(petType === 'dogs') {
-//   res.json(dogs.peek());
-// } else {
-//   const err = new Error('Sorry, cats and dogs only! Check back soon for my animals!');
-//   err.status = 404;
-//   next(err);
+router.post('/pets/:pets', checkPetType, (req, res, next) => {
+  //verify body has name attributes
+  const petAttrs = ['name', 'age', 'sex', 'breed', 'story', 'imageUrl', 'imageDescription'];
+  if(!req.body.name) {
+    const err = new Error('Missing name');
+    err.status = 422;
+    next(err);
+    return;
+  }
+  //verify if age age is a number
+  if(isNaN(req.body.age)){
+    const err = new Error('Age must be a number');
+    err.status = 400;
+    next(err);
+    return;
+  }
   
-// }
+  if((req.body.sex && (req.body.sex !== 'male' || req.body.sex !== 'female')) || !req.body.sex){ 
+    req.body.sex = 'unspecified';
+  }
 
-router.delete('/pets/:pets', selectOnePetFromDb, (req, res, next) => {
-  let petType = req.params.pets;
-  if(req.pet){
-    knex(petType).del().where('id', req.pet.id)
+  const newPet = {};
+  petAttrs.forEach(key => req.body.hasOwnProperty(key) ? newPet[key] = req.body[key] : undefined);
+  knex(req.petType).insert(newPet).returning('*')
+    .then(result => res.status(201).json(result))
+    .catch(err => next(err));
+
+});
+router.delete('/pets/:pets', checkPetType, selectOnePetFromDb, (req, res, next) => {
+  if (req.pet) {
+    knex(req.petType).del().where('id', req.pet.id)
       .then(() => res.sendStatus(204))
       .catch(err => next(err));
-  }else{
+  } else {
     res.sendStatus(204);
   }
 });
